@@ -11,6 +11,21 @@ steps:
       - 'frontend/Dockerfile'
       - 'frontend'
 
-# Push the image to Container Registry
+  # Push the image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/zeliverybot-frontend:$COMMIT_SHA']
+
+  # Deploy image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'zeliverybot-frontend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/zeliverybot-frontend:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+
 images:
   - 'gcr.io/$PROJECT_ID/zeliverybot-frontend:$COMMIT_SHA'
