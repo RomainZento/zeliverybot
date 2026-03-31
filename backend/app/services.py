@@ -78,7 +78,7 @@ class DocumentProcessor:
 
 class DriveService:
     def __init__(self):
-        self.credentials_file = "google_credentials.json"
+        self.credentials_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "google_credentials.json")
         self.folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
         self.scopes = ['https://www.googleapis.com/auth/drive.readonly']
         self.service = None
