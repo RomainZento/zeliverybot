@@ -15,6 +15,7 @@ import fitz # PyMuPDF
 from docx import Document
 from pptx import Presentation
 from dotenv import load_dotenv
+from fastapi import UploadFile
 
 load_dotenv()
 
@@ -146,6 +147,31 @@ class DriveService:
             status, done = downloader.next_chunk()
         return local_path
 
+    def search_files(self, query_text: str) -> List[Dict[str, Any]]:
+        """Search across entire configured Drive space."""
+        if not self.service or not self.folder_id:
+            return []
+            
+        try:
+            # name contains query and isn't trashed
+            q = f"name contains '{query_text}' and trashed = false"
+            results = self.service.files().list(
+                q=q, fields="files(id, name, size, mimeType)").execute()
+            
+            items = []
+            for f in results.get('files', []):
+                item_type = "folder" if f["mimeType"] == "application/vnd.google-apps.folder" else "file"
+                items.append({
+                    "id": f"drive:{f['id']}",
+                    "name": f["name"],
+                    "type": item_type,
+                    "size": f"{int(f.get('size', 0)) // 1024}KB" if item_type == "file" else None
+                })
+            return items
+        except Exception as e:
+            print(f"Drive Search Error: {e}")
+            return []
+
 class SourceManagerService:
     def __init__(self):
         self.processor = DocumentProcessor()
@@ -167,6 +193,23 @@ class SourceManagerService:
                 "children": [] if is_dir else None
             })
         return items
+
+    async def global_search(self, query: str) -> List[Dict[str, Any]]:
+        """Search local and drive files by name."""
+        local = []
+        if os.path.exists("docs_to_index"):
+            for f in os.listdir("docs_to_index"):
+                if query.lower() in f.lower():
+                    path = os.path.join("docs_to_index", f)
+                    local.append({
+                        "id": path,
+                        "name": f,
+                        "type": "file",
+                        "size": f"{os.path.getsize(path) // 1024}KB"
+                    })
+        
+        drive = self.drive.search_files(query)
+        return local + drive
 
     async def list_available_files(self, parent_id: Optional[str] = None) -> List[Dict[str, Any]]:
         if not parent_id:
@@ -238,6 +281,22 @@ class SourceManagerService:
                 print(f"Error indexing {fid}: {e}")
 
         return {"status": "success", "indexed_files": processed_count}
+
+    async def handle_upload(self, file: UploadFile) -> Dict[str, Any]:
+        """Saves an uploaded file locally to docs_to_index folder."""
+        import shutil
+        if not os.path.exists("docs_to_index"):
+            os.makedirs("docs_to_index")
+        
+        file_path = os.path.join("docs_to_index", file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        return {
+            "status": "success", 
+            "filename": file.filename,
+            "id": file_path
+        }
 
     async def purge_file(self, file_id: str):
         collection.delete(where={"file_id": file_id})

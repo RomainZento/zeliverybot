@@ -24,6 +24,11 @@ async def get_sources_status():
     """Returns storage metrics of the vector database."""
     return await source_manager.get_metrics()
 
+@router.get("/sources/search")
+async def search_sources(query: str):
+    """Searches for files by name globally."""
+    return await source_manager.global_search(query)
+
 @router.post("/sources/sync")
 async def sync_sources(data: SyncRequest):
     """Triggers indexing / embedding generation for selected files."""
@@ -32,6 +37,11 @@ async def sync_sources(data: SyncRequest):
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/sources/upload")
+async def upload_source(file: UploadFile = File(...)):
+    """Uploads a local file to the server storage."""
+    return await source_manager.handle_upload(file)
 
 @router.delete("/sources/purge")
 async def purge_sources(file_id: str):

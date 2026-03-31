@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   X, 
   Search, 
@@ -36,18 +36,39 @@ export function SourceManager({ onClose }: SourceManagerProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [fileList, setFileList] = useState<SourceFile[]>([]);
   const [ragMetrics, setRagMetrics] = useState<{ storage_size: string, total_chunks: number } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchFiles = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sources/list`);
+      const data = await res.json();
+      setFileList(data);
+    } catch (err) {
+      console.error("Erreur sources list:", err);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sources/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      fetchFiles(); // Refresh list
+    } catch (err) {
+      console.error("Erreur upload:", err);
+    }
+  };
 
   useEffect(() => {
-    const fetchFiles = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sources/list`);
-        const data = await res.json();
-        setFileList(data);
-      } catch (err) {
-        console.error("Erreur sources list:", err);
-      }
-    };
-
     const fetchStatus = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sources/status`);
@@ -57,10 +78,29 @@ export function SourceManager({ onClose }: SourceManagerProps) {
         console.error("Erreur status RAG:", err);
       }
     };
-
-    fetchFiles();
     fetchStatus();
   }, []);
+
+  // Search effect
+  useEffect(() => {
+    if (searchQuery.trim().length > 2) {
+      const delayDebounceFn = setTimeout(async () => {
+        setIsSearching(true);
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sources/search?query=${encodeURIComponent(searchQuery)}`);
+          const data = await res.json();
+          setFileList(data);
+        } catch (err) {
+          console.error("Erreur search:", err);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    } else if (searchQuery.length === 0) {
+      fetchFiles();
+    }
+  }, [searchQuery]);
 
   const handleSync = async () => {
     if (selectedDocs.length === 0) return;
@@ -117,14 +157,26 @@ export function SourceManager({ onClose }: SourceManagerProps) {
           {/* File Browser */}
           <div className="lg:w-1/2 flex flex-col p-6 lg:p-10 bg-white/[0.02] transition-all duration-300 min-h-[400px] lg:min-h-0">
             <div className="flex flex-col sm:flex-row items-center justify-between mb-6 lg:mb-10 gap-6">
+
                <div className="relative flex-1 group/search">
-                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/search:text-[hsl(var(--zento-rose))] transition-colors" size={20} />
+                 <Search className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors ${isSearching ? "text-[hsl(var(--zento-rose))] animate-pulse" : "text-slate-500"}`} size={20} />
                  <input 
-                   placeholder="Filtrer vos documents..."
+                   placeholder="Recherche globale (Drive + Local)..."
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
                    className="w-full bg-white/5 border border-white/10 rounded-full py-4 pl-14 pr-6 text-white outline-none focus:border-[hsl(var(--zento-rose))]/40 focus:ring-4 focus:ring-[hsl(var(--zento-rose))]/10 placeholder-slate-600 transition-all font-bold text-base"
                  />
                </div>
-               <button className="px-6 py-4 bg-[hsl(var(--zento-rose))] text-white font-black uppercase tracking-widest text-xs rounded-full flex items-center gap-3 hover:scale-105 transition active:scale-95 shadow-lg shadow-rose-500/20">
+               <input 
+                 type="file" 
+                 ref={fileInputRef} 
+                 onChange={handleFileUpload} 
+                 className="hidden" 
+               />
+               <button 
+                 onClick={() => fileInputRef.current?.click()}
+                 className="px-6 py-4 bg-[hsl(var(--zento-rose))] text-white font-black uppercase tracking-widest text-xs rounded-full flex items-center gap-3 hover:scale-105 transition active:scale-95 shadow-lg shadow-rose-500/20"
+               >
                  <FolderPlus size={18} strokeWidth={3} />
                  Importer
                </button>
