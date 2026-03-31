@@ -1,0 +1,24 @@
+# sensitive
+backend/google_credentials.json
+.env*
+!.env.example
+
+# Node
+node_modules/
+.next/
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+backend/db_storage/
+backend/docs_to_index/
+
+# Cloud / OS
+.DS_Store

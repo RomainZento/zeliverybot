@@ -1,0 +1,12 @@
+# Backend dockerignore
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+.env
+.git
+.gitignore
+db_storage/
+docs_to_index/
+google_credentials.json

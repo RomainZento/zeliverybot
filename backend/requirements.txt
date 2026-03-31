@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+google-generativeai
+chromadb
+python-multipart
+pymupdf
+python-docx
+openpyxl
+pandas
+python-pptx
+langchain
+langchain-community
+langchain-google-genai
+llama-index
+sentence-transformers

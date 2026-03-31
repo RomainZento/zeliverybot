@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-outfit);
+  --font-mono: var(--font-mono);
+}
+
+:root {
+  /* Zento Design System */
+  --zento-rose: 2 79% 66%; /* #EC6863 */
+  --zento-blue: 201 68% 52%; /* #369AD6 */
+  --zento-yellow: 47 96% 47%; /* #EEBA05 */
+  --zento-black: 0 0% 10%; /* #1B1A1A */
+  --zento-offwhite: 33 100% 98%; /* #FFF9F3 */
+  
+  --background: 0 0% 8%; /* Darker for better contrast with bubbles */
+  --foreground: 33 100% 98%;
+  --primary: var(--zento-rose);
+  --primary-foreground: 0 0% 100%;
+  --card: 0 0% 12%;
+  --card-foreground: 33 100% 98%;
+  --radius: 2.5rem; /* Large 40px radius */
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+}
+
+body {
+  background-color: hsl(var(--zento-black));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+  position: relative;
+}
+
+/* Zento Background Spheres */
+body::before, body::after {
+  content: "";
+  position: fixed;
+  width: 50vw;
+  height: 50vw;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: -1;
+  opacity: 0.15;
+}
+
+body::before {
+  top: -10%;
+  right: -10%;
+  background: hsl(var(--zento-rose));
+}
+
+body::after {
+  bottom: -10%;
+  left: -10%;
+  background: hsl(var(--zento-blue));
+}
+
+.glass {
+  background: rgba(27, 26, 26, 0.7); /* Based on #1B1A1A */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.zento-pill {
+  border-radius: 9999px;
+}
+
+.zento-card {
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(236, 104, 99, 0.2); /* Zento Rose low opacity */
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(236, 104, 99, 0.4);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
