@@ -1,0 +1,16 @@
+steps:
+  # Build the frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_API_URL=https://zeliverybot-backend-46048432129.europe-west1.run.app'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/zeliverybot-frontend:$COMMIT_SHA'
+      - '-f'
+      - 'frontend/Dockerfile'
+      - 'frontend'
+
+# Push the image to Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/zeliverybot-frontend:$COMMIT_SHA'
