@@ -1,6 +1,6 @@
 # Dockerfile for Next.js
 
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -20,9 +20,9 @@ COPY . .
 # Disable telemetry during the build
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Note: In Cloud Run, build-time env vars must be passed here if needed
-# ARG NEXT_PUBLIC_API_URL
-# ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Note: In Cloud Run, build-time env vars must be passed here
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN npm run build
 
