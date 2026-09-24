@@ -24,6 +24,11 @@ def get_sources_status():
     """Returns storage metrics of the vector database."""
     return source_manager.get_metrics()
 
+@router.get("/sources/indexed")
+def list_indexed_sources(project_id: str):
+    """Lists files and folders already indexed for a project."""
+    return source_manager.list_indexed(project_id)
+
 @router.get("/sources/search")
 def search_sources(query: str):
     """Searches for files by name globally."""

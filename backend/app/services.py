@@ -1,5 +1,6 @@
 import os
 import json
+import threading
 from google import genai
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -195,6 +196,31 @@ class SourceManagerService:
     def __init__(self):
         self.processor = DocumentProcessor()
         self.drive = DriveService()
+        # Registry of what has been indexed, per project (files and folders)
+        self.registry_path = "db_storage/indexed_sources.json"
+        self.registry_lock = threading.Lock()
+
+    def _load_registry(self) -> Dict[str, Any]:
+        try:
+            with open(self.registry_path, 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+    def _mark_indexed(self, project_id: str, item_id: str, name: str, item_type: str, chunks: Optional[int] = None):
+        with self.registry_lock:
+            registry = self._load_registry()
+            registry.setdefault(project_id, {})[item_id] = {
+                "name": name,
+                "type": item_type,
+                "chunks": chunks,
+                "indexed_at": datetime.now().isoformat()
+            }
+            with open(self.registry_path, 'w') as f:
+                json.dump(registry, f, indent=4)
+
+    def list_indexed(self, project_id: str) -> Dict[str, Any]:
+        return self._load_registry().get(project_id, {})
 
     def _list_local(self, path: str) -> List[Dict[str, Any]]:
         items = []
@@ -260,6 +286,7 @@ class SourceManagerService:
                 for f in os.listdir(fid):
                     if not f.startswith('.'):
                         queue.append(os.path.join(fid, f))
+                self._mark_indexed(project_id, fid, os.path.basename(fid.rstrip("/")), "folder")
                 continue
 
             try:
@@ -272,17 +299,26 @@ class SourceManagerService:
                         children = self.drive.list_files(parent_id=fid)
                         for c in children:
                             queue.append(c['id'])
+                        self._mark_indexed(project_id, fid, meta['name'], "folder")
                         continue
                     else:
                         path = self.drive.download_file(fid)
                         if not path: continue
                 else:
                     path = fid
-                
+
                 # Parse & Index
                 text = processor.process_file(path)
                 if not text: continue
-                
+                name = os.path.basename(path)
+
+                # Re-indexing: drop this file's previous chunks (and legacy name-based ones)
+                collection.delete(where={"$and": [{"project_id": project_id}, {"file_id": fid}]})
+                legacy = collection.get(where={"$and": [{"project_id": project_id}, {"name": name}]})
+                legacy_ids = [cid for cid, m in zip(legacy["ids"], legacy["metadatas"]) if "file_id" not in m]
+                if legacy_ids:
+                    collection.delete(ids=legacy_ids)
+
                 chunks = [text[i:i + 1000] for i in range(0, len(text), 1000)]
                 for i, chunk in enumerate(chunks):
                     embed_res = client.models.embed_content(
@@ -290,12 +326,13 @@ class SourceManagerService:
                         contents=chunk,
                         config={'task_type': 'retrieval_document'}
                     )
-                    collection.add(
-                        ids=[f"{project_id}_{os.path.basename(path)}_{i}"],
+                    collection.upsert(
+                        ids=[f"{project_id}_{fid}_{i}"],
                         embeddings=[embed_res.embeddings[0].values],
                         documents=[chunk],
-                        metadatas=[{"project_id": project_id, "name": os.path.basename(path)}]
+                        metadatas=[{"project_id": project_id, "name": name, "file_id": fid}]
                     )
+                self._mark_indexed(project_id, fid, name, "file", len(chunks))
                 processed_count += 1
             except Exception as e:
                 print(f"Error indexing {fid}: {e}")
@@ -320,6 +357,12 @@ class SourceManagerService:
 
     def purge_file(self, file_id: str):
         collection.delete(where={"file_id": file_id})
+        with self.registry_lock:
+            registry = self._load_registry()
+            for items in registry.values():
+                items.pop(file_id, None)
+            with open(self.registry_path, 'w') as f:
+                json.dump(registry, f, indent=4)
         return {"status": "deleted", "file_id": file_id}
 
     def get_metrics(self) -> Dict[str, Any]:

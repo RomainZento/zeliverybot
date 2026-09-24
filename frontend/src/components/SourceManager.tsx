@@ -27,6 +27,15 @@ interface SourceFile {
   children?: SourceFile[];
 }
 
+interface IndexedInfo {
+  name: string;
+  type: 'file' | 'folder';
+  chunks?: number | null;
+  indexed_at: string;
+}
+
+type IndexedMap = Record<string, IndexedInfo>;
+
 interface SourceManagerProps {
   onClose: () => void;
 }
@@ -35,6 +44,7 @@ export function SourceManager({ onClose }: SourceManagerProps) {
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [fileList, setFileList] = useState<SourceFile[]>([]);
+  const [indexed, setIndexed] = useState<IndexedMap>({});
   const [ragMetrics, setRagMetrics] = useState<{ storage_size: string, total_chunks: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -47,6 +57,15 @@ export function SourceManager({ onClose }: SourceManagerProps) {
       setFileList(data);
     } catch (err) {
       console.error("Erreur sources list:", err);
+    }
+  };
+
+  const fetchIndexed = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sources/indexed?project_id=${process.env.NEXT_PUBLIC_PROJECT_ID || "default"}`);
+      setIndexed(await res.json());
+    } catch (err) {
+      console.error("Erreur sources indexées:", err);
     }
   };
 
@@ -79,6 +98,7 @@ export function SourceManager({ onClose }: SourceManagerProps) {
       }
     };
     fetchStatus();
+    fetchIndexed();
   }, []);
 
   // Search effect
@@ -185,7 +205,7 @@ export function SourceManager({ onClose }: SourceManagerProps) {
             <div className="flex-1 overflow-y-auto space-y-4 pr-4 custom-scrollbar">
               <p className="text-[10px] text-slate-600 font-black uppercase tracking-[0.3em] px-4 mb-4">Stockage Cloud / VM</p>
               {fileList.map((item) => (
-                <FileTreeItem key={item.id} item={item} selected={selectedDocs} onToggle={(id) => {
+                <FileTreeItem key={item.id} item={item} selected={selectedDocs} indexed={indexed} onToggle={(id) => {
                   setSelectedDocs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
                 }} />
               ))}
@@ -202,6 +222,9 @@ export function SourceManager({ onClose }: SourceManagerProps) {
                  <div className="flex flex-col min-w-0">
                    <span className="text-2xl font-black text-white tracking-tighter truncate">{selectedDocs.length} SELECTIONNÉS</span>
                    <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest mt-0.5 truncate">DOCUMENTS PRÊTS À SYNC</span>
+                   <span className="text-[10px] text-green-500/80 font-black uppercase tracking-widest mt-1 truncate">
+                     {Object.values(indexed).filter(i => i.type === "file").length} FICHIERS DÉJÀ INDEXÉS
+                   </span>
                  </div>
                </div>
 
@@ -280,11 +303,12 @@ export function SourceManager({ onClose }: SourceManagerProps) {
   );
 }
 
-function FileTreeItem({ item, selected, onToggle, depth = 0 }: { item: SourceFile, selected: string[], onToggle: (id: string) => void, depth?: number }) {
+function FileTreeItem({ item, selected, indexed, onToggle, depth = 0 }: { item: SourceFile, selected: string[], indexed: IndexedMap, onToggle: (id: string) => void, depth?: number }) {
   const [isOpen, setIsOpen] = useState(false);
   const [children, setChildren] = useState<SourceFile[]>(item.children || []);
   const [loading, setLoading] = useState(false);
   const isSelected = selected.includes(item.id);
+  const indexedInfo = indexed[item.id];
 
   const toggleOpen = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -352,6 +376,16 @@ function FileTreeItem({ item, selected, onToggle, depth = 0 }: { item: SourceFil
           </span>
         </div>
 
+        {indexedInfo && (
+          <span
+            title={`Indexé le ${new Date(indexedInfo.indexed_at).toLocaleString("fr-FR")}${indexedInfo.chunks ? ` · ${indexedInfo.chunks} chunks` : ""}`}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-500 text-[9px] font-black uppercase tracking-widest shrink-0"
+          >
+            <CheckCircle2 size={10} />
+            Indexé
+          </span>
+        )}
+
         {item.size && (
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
             {item.size}
@@ -367,6 +401,7 @@ function FileTreeItem({ item, selected, onToggle, depth = 0 }: { item: SourceFil
                 key={child.id} 
                 item={child} 
                 selected={selected} 
+                indexed={indexed}
                 onToggle={onToggle} 
                 depth={depth + 1} 
               />
