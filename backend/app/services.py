@@ -199,7 +199,7 @@ class SourceManagerService:
             })
         return items
 
-    async def global_search(self, query: str) -> List[Dict[str, Any]]:
+    def global_search(self, query: str) -> List[Dict[str, Any]]:
         """Search local and drive files by name."""
         local = []
         if os.path.exists("docs_to_index"):
@@ -216,7 +216,7 @@ class SourceManagerService:
         drive = self.drive.search_files(query)
         return local + drive
 
-    async def list_available_files(self, parent_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_available_files(self, parent_id: Optional[str] = None) -> List[Dict[str, Any]]:
         if not parent_id:
             # Top level: Local root + Drive root
             local = self._list_local("./docs_to_index")
@@ -229,7 +229,7 @@ class SourceManagerService:
         else:
             return self._list_local(parent_id)
 
-    async def sync_files(self, project_id: str, file_ids: List[str]) -> Dict[str, Any]:
+    def sync_files(self, project_id: str, file_ids: List[str]) -> Dict[str, Any]:
         processed_count = 0
         processor = DocumentProcessor()
         
@@ -287,7 +287,7 @@ class SourceManagerService:
 
         return {"status": "success", "indexed_files": processed_count}
 
-    async def handle_upload(self, file: UploadFile) -> Dict[str, Any]:
+    def handle_upload(self, file: UploadFile) -> Dict[str, Any]:
         """Saves an uploaded file locally to docs_to_index folder."""
         import shutil
         if not os.path.exists("docs_to_index"):
@@ -303,11 +303,11 @@ class SourceManagerService:
             "id": file_path
         }
 
-    async def purge_file(self, file_id: str):
+    def purge_file(self, file_id: str):
         collection.delete(where={"file_id": file_id})
         return {"status": "deleted", "file_id": file_id}
 
-    async def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> Dict[str, Any]:
         """Calculates storage size of ChromaDB and counts total embeddings."""
         import os
         
@@ -358,7 +358,7 @@ class ChatEngineService:
         with open(self.sessions_path, 'w') as f:
             json.dump(sessions, f, indent=4)
 
-    async def list_sessions(self, project_id: str) -> List[Dict[str, Any]]:
+    def list_sessions(self, project_id: str) -> List[Dict[str, Any]]:
         sessions = self._load_sessions()
         project_sessions = []
         for sid, sdata in sessions.items():
@@ -370,13 +370,13 @@ class ChatEngineService:
                 })
         return sorted(project_sessions, key=lambda x: x['timestamp'], reverse=True)
 
-    async def get_history(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_history(self, session_id: str) -> List[Dict[str, Any]]:
         sessions = self._load_sessions()
         if session_id in sessions:
             return sessions[session_id].get("messages", [])
         return []
 
-    async def generate_response(self, query: str, project_id: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+    def generate_response(self, query: str, project_id: str, session_id: Optional[str] = None) -> Dict[str, Any]:
         # 0. Load or Create Session
         sessions = self._load_sessions()
         if not session_id or session_id not in sessions:
