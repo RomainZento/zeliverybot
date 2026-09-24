@@ -1,0 +1,39 @@
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/google_credentials.json
+    volumes:
+      - ./data/db_storage:/app/db_storage
+      - ./data/docs_to_index:/app/docs_to_index
+      - ./backend/google_credentials.json:/app/google_credentials.json:ro
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://zeliverybot.zento-shop.fr/backend
+    env_file: ./frontend/.env.production
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

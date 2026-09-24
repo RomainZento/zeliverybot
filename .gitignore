@@ -22,3 +22,6 @@ backend/docs_to_index/
 
 # Cloud / OS
 .DS_Store
+
+# Données persistantes de la VM
+data/
