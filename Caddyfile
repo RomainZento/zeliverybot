@@ -1,0 +1,15 @@
+zeliverybot.zento-shop.fr {
+	encode gzip
+
+	request_body {
+		max_size 100MB
+	}
+
+	# API FastAPI : le préfixe /backend est retiré avant transmission
+	handle_path /backend/* {
+		reverse_proxy backend:8000
+	}
+
+	# Tout le reste (pages + NextAuth /api/auth) va au frontend Next.js
+	reverse_proxy frontend:3000
+}

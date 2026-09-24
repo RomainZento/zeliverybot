@@ -18,9 +18,14 @@ from dotenv import load_dotenv
 from fastapi import UploadFile
 
 load_dotenv()
+if not os.getenv("GEMINI_API_KEY"):
+    load_dotenv("../.env")
 
 # Initialize Gemini Client
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+api_key = os.getenv("GEMINI_API_KEY")
+print(f"🔑 API KEY STATUS: {'LOADED (ends with ' + api_key[-4:] + ')' if api_key else 'NOT FOUND'}")
+
+client = genai.Client(api_key=api_key)
 
 # Initialize ChromaDB (Local persistence)
 chroma_client = chromadb.PersistentClient(path="./db_storage")
