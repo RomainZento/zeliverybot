@@ -126,17 +126,31 @@ class DriveService:
 
     def download_file(self, file_id: str) -> str:
         real_id = file_id.replace("drive:", "")
-        meta = self.service.files().get(fileId=real_id, fields="id, name, mimeType").execute()
-        
+        meta = self.service.files().get(fileId=real_id, fields="id, name, mimeType, shortcutDetails").execute()
+
+        # Drive shortcuts: download the target file instead
+        if meta['mimeType'] == "application/vnd.google-apps.shortcut":
+            real_id = meta['shortcutDetails']['targetId']
+            meta = self.service.files().get(fileId=real_id, fields="id, name, mimeType").execute()
+
         if meta['mimeType'] == "application/vnd.google-apps.folder":
             return None
 
         filename = meta['name']
         local_path = os.path.join("docs_to_index", filename)
-        
-        # Handle Google Workspace Types
+
+        # Handle Google Workspace Types (only these can be exported to PDF)
         is_workspace = meta['mimeType'].startswith('application/vnd.google-apps.')
-        
+        exportable = (
+            "application/vnd.google-apps.document",
+            "application/vnd.google-apps.spreadsheet",
+            "application/vnd.google-apps.presentation",
+            "application/vnd.google-apps.drawing",
+        )
+        if is_workspace and meta['mimeType'] not in exportable:
+            print(f"DriveService: skipping unsupported type {meta['mimeType']} ({filename})")
+            return None
+
         if is_workspace:
             local_path += ".pdf"
             fh = io.FileIO(local_path, 'wb')
@@ -261,6 +275,7 @@ class SourceManagerService:
                         continue
                     else:
                         path = self.drive.download_file(fid)
+                        if not path: continue
                 else:
                     path = fid
                 
